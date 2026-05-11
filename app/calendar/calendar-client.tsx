@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -11,6 +11,7 @@ import {
   isValidDateKey,
   loadInitialStorage,
 } from "@/lib/life-tracker";
+import { trackEvent } from "@/lib/analytics";
 import { getScoreForDate } from "@/lib/scoring";
 
 function monthKeyFromDateKey(dateKey: string) {
@@ -49,6 +50,15 @@ export default function CalendarClient({
 
   const [month, setMonth] = useState(() => monthKeyFromDateKey(selectedDate));
   const store = useMemo(() => loadInitialStorage(), []);
+
+  useEffect(() => {
+    trackEvent("calendar_opened", {
+      selected_date: selectedDate,
+      month_key: monthKeyFromDateKey(selectedDate),
+    });
+    // One event per calendar route visit (anchor is whatever the URL was at mount).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const grid = useMemo(() => {
     const firstKey = startOfMonthKey(month);

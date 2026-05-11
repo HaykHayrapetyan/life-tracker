@@ -43,6 +43,7 @@ import {
   getScoreForDate,
   removeHabitFromEntries,
 } from "@/lib/scoring";
+import { trackEvent } from "@/lib/analytics";
 
 export default function HomeClient() {
   const router = useRouter();
@@ -63,25 +64,61 @@ export default function HomeClient() {
   const { habits, entries } = store;
 
   function toggleHabit(habitId: string, checked: boolean) {
-    setStore((prev) => ({
-      ...prev,
-      entries: {
-        ...prev.entries,
-        [selectedDate]: {
-          checked: {
-            ...(prev.entries[selectedDate]?.checked || {}),
-            [habitId]: checked,
+    setStore((prev) => {
+      const habitMeta = prev.habits.find((h) => h.id === habitId);
+      const next: AppStorage = {
+        ...prev,
+        entries: {
+          ...prev.entries,
+          [selectedDate]: {
+            checked: {
+              ...(prev.entries[selectedDate]?.checked || {}),
+              [habitId]: checked,
+            },
           },
         },
-      },
-    }));
+      };
+
+      if (habitMeta) {
+        const dayScore = getScoreForDate(next, selectedDate);
+        trackEvent(
+          checked ? "habit_checked" : "habit_unchecked",
+          {
+            habitId,
+            habitType: habitMeta.type,
+            selectedDate,
+            day_score: dayScore,
+          },
+          {
+            insertId: `${checked ? "c" : "uc"}-${habitId}-${selectedDate}`,
+          }
+        );
+      }
+
+      return next;
+    });
   }
 
   function deleteHabit(id: string) {
+    const habit = habits.find((h) => h.id === id);
+    const totalHabitsAfter = habits.length - 1;
+
     setStore((prev) => ({
       habits: prev.habits.filter((h) => h.id !== id),
       entries: removeHabitFromEntries(prev.entries, id),
     }));
+
+    if (habit) {
+      trackEvent(
+        "habit_deleted",
+        {
+          habitId: id,
+          habitType: habit.type,
+          total_habits: totalHabitsAfter,
+        },
+        { insertId: `deleted-${id}` }
+      );
+    }
   }
 
   function addHabit(payload: {
@@ -109,6 +146,17 @@ export default function HomeClient() {
       ...prev,
       habits: [...prev.habits, base],
     }));
+
+    trackEvent(
+      "habit_created",
+      {
+        habitId: id,
+        habitType: payload.type,
+        rhythm_scoring: payload.streakEnabled,
+        total_habits: habits.length + 1,
+      },
+      { insertId: `created-${id}` }
+    );
   }
 
   const dayScore = getScoreForDate(store, selectedDate);
@@ -120,6 +168,14 @@ export default function HomeClient() {
   const negatives = habits.filter((h) => h.type === "negative");
 
   function setDate(next: string) {
+    if (next !== selectedDate) {
+      trackEvent("date_changed", {
+        from_date: selectedDate,
+        to_date: next,
+        viewing_today: next === todayKey,
+      });
+    }
+
     if (next === todayKey) {
       router.replace("/");
     } else {
