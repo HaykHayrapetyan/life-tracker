@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
-import { AnonymousUserBootstrap } from "@/components/anonymous-user-bootstrap";
+import { AnalyticsFooterNotice } from "@/components/analytics-footer-notice";
+import { ClientAppBootstrap } from "@/components/client-app-bootstrap";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -32,8 +33,9 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <AnonymousUserBootstrap />
-        {children}
+        <ClientAppBootstrap />
+        <div className="flex flex-1 flex-col">{children}</div>
+        <AnalyticsFooterNotice />
       </body>
     </html>
   );
